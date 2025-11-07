@@ -96,8 +96,8 @@ pipeline {
                         aws eks --region $AWS_REGION update-kubeconfig --name deepakcluster
 
                         echo "Applying Kubernetes manifests..."
-                        kubectl apply -f deployment.yaml
-                        kubectl apply -f service.yaml
+                        kubectl apply -f deployment.yml
+                        kubectl apply -f service.yml
 
                         echo "Waiting for deployment rollout..."
                         kubectl rollout status deployment/bookmyshow-deployment
