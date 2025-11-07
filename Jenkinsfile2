@@ -8,9 +8,6 @@ pipeline {
 
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
-        AWS_REGION = 'ap-south-1'
-        EKS_CLUSTER = 'deepakcluster'
-        DOCKER_IMAGE = 'chilukuri268/book-myshow:latest'
     }
 
     stages {
@@ -57,7 +54,7 @@ pipeline {
                     cd bookmyshow-app
                     if [ -f package.json ]; then
                         rm -rf node_modules package-lock.json
-                        npm install --legacy-peer-deps
+                        npm install
                     else
                         echo "Error: package.json not found!"
                         exit 1
@@ -77,11 +74,11 @@ pipeline {
                 script {
                     withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
                         sh '''
-                            echo "Building Docker image..."
-                            docker build -t $DOCKER_IMAGE -f bookmyshow-app/Dockerfile bookmyshow-app
+                            echo "🔨 Building Docker image..."
+                            docker build --no-cache -t chilukuri268/book-myshow:latest -f bookmyshow-app/Dockerfile bookmyshow-app
 
-                            echo "Pushing Docker image to Docker Hub..."
-                            docker push $DOCKER_IMAGE
+                            echo "📦 Pushing image to Docker Hub..."
+                            docker push chilukuri268/book-myshow:latest
                         '''
                     }
                 }
@@ -90,39 +87,29 @@ pipeline {
 
         stage('Deploy to Kubernetes (EKS)') {
             steps {
-                script {
+                withAWS(credentials: 'aws-cred', region: 'ap-south-1') {
                     sh '''
-                        echo "Configuring kubeconfig for EKS..."
-                        aws eks --region $AWS_REGION update-kubeconfig --name deepakcluster
+                        echo "⚙️ Configuring kubeconfig for EKS..."
+                        aws eks --region ap-south-1 update-kubeconfig --name deepakcluster
 
-                        echo "Applying Kubernetes manifests..."
+                        echo "🚀 Applying Kubernetes manifests..."
                         kubectl apply -f deployment.yml
                         kubectl apply -f service.yml
 
-                        echo "Waiting for deployment rollout..."
+                        echo "✅ Deployment applied successfully. Checking rollout..."
                         kubectl rollout status deployment/bookmyshow-deployment
-                    '''
-                }
-            }
-        }
 
-        stage('Wait for LoadBalancer') {
-            steps {
-                script {
-                    sh '''
-                        echo "Waiting for LoadBalancer External IP..."
+                        echo "⏳ Waiting for LoadBalancer external IP..."
                         for i in {1..20}; do
-                            EXTERNAL_IP=$(kubectl get svc bookmyshow-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' || true)
-                            if [ -n "$EXTERNAL_IP" ]; then
-                                echo "✅ LoadBalancer ready: http://$EXTERNAL_IP"
-                                exit 0
+                            LB=$(kubectl get svc bookmyshow-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+                            if [ -n "$LB" ]; then
+                                echo "🌐 LoadBalancer ready: http://$LB"
+                                break
                             else
-                                echo "Waiting for LoadBalancer to be assigned..."
+                                echo "Still waiting... ($i/20)"
                                 sleep 15
                             fi
                         done
-                        echo "❌ LoadBalancer not ready after timeout!"
-                        exit 1
                     '''
                 }
             }
