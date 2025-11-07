@@ -9,7 +9,7 @@ pipeline {
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
         AWS_REGION = 'ap-south-1'
-        EKS_CLUSTER = 'janacluster'
+        EKS_CLUSTER = 'deepakcluster'
         DOCKER_IMAGE = 'chilukuri268/book-myshow:latest'
     }
 
@@ -79,6 +79,7 @@ pipeline {
                         sh '''
                             echo "Building Docker image..."
                             docker build -t $DOCKER_IMAGE -f bookmyshow-app/Dockerfile bookmyshow-app
+
                             echo "Pushing Docker image to Docker Hub..."
                             docker push $DOCKER_IMAGE
                         '''
